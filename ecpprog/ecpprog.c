@@ -955,7 +955,7 @@ int main(int argc, char **argv)
 		   named pipe, or contrarily, the standard input may be an
 		   ordinary file. */
 
-		if (!prog_sram && !check_mode) {
+		if (!prog_sram && !check_mode && !prog_machxo3) {
 			if (fseek(f, 0L, SEEK_END) != -1) {
 				file_size = ftell(f);
 				if (file_size == -1) {
@@ -1071,11 +1071,32 @@ int main(int argc, char **argv)
 	{
 		fprintf(stderr, "machxo3 reset..\n");
 		ecp_jtag_cmd8(ISC_ENABLE, 0);
-		ecp_jtag_cmd8(ISC_ERASE, 0);
+		ecp_jtag_cmd8(ISC_ERASE, 0x0c);
 		ecp_jtag_cmd(ISC_DISABLE);
 
 		read_status_register();
 		ecp_jtag_cmd8(LSC_INIT_ADDRESS, 0);
+		fprintf(stderr, "programming..\n");
+		while (1) {
+			const uint32_t len = 16*8;
+			static unsigned char buffer[16*8];
+			ecp_jtag_cmd(LSC_PROG_INCR_NV);
+			int rc = fread(buffer, 1, len, f);
+			if (rc <= 0)
+				break;
+			if (verbose)
+				fprintf(stderr, "sending %d bytes.\n", rc);
+
+			for(int i = 0; i < rc; i++){
+				buffer[i] = bit_reverse(buffer[i]);
+			}
+
+			jtag_go_to_state(STATE_CAPTURE_DR);
+			jtag_tap_shift(buffer, buffer, rc*8, false);
+			jtag_wait_time(32);	
+		}
+		ecp_jtag_cmd(ISC_DISABLE);
+		read_status_register();	
 
 	}
 	else /* program flash */

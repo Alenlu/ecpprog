@@ -22,6 +22,7 @@ enum lattice_cmd
 	LSC_BITSTREAM_BURST = 0x7A, /* 24 bits - Program the device the whole bitstream sent in as the command operand */
 #ifdef MACHXO3
 	LSC_PROG_INCR_NV = 0x70, /* 24 bits - Write configuration data to the configuration memory frame at current address and post increment the address, Byte 2~0 of the opcode indicate number of the frames included in the operand field */
+	LSC_ERASE_TAG = 0xCB,
 #endif	
 	LSC_PROG_INCR_RTI = 0x82, /* 24 bits - Write configuration data to the configuration memory frame at current address and post increment the address, Byte 2~0 of the opcode indicate number of the frames included in the operand field */
 	LSC_PROG_INCR_ENC = 0xB6, /* 24 bits - Encrypt the configuration data then write */
