@@ -92,6 +92,7 @@ enum flash_cmd {
 	FC_RESET = 0x99, /* Reset Device */
 };
 
+	uint32_t idcodeg = 0;
 
 // ---------------------------------------------------------
 // JTAG -> SPI functions
@@ -447,7 +448,7 @@ static void print_idcode(uint32_t idcode){
 	printf("IDCODE: 0x%08x does not match :(\n", idcode);
 }
 
-static void read_idcode(){
+static uint32_t read_idcode(){
 
 	uint8_t data[4] = {READ_ID};
 
@@ -465,6 +466,8 @@ static void read_idcode(){
 		idcode = data[i] << 24 | idcode >> 8;
 
 	print_idcode(idcode);
+
+	return idcode;
 }
 
 
@@ -654,6 +657,8 @@ int main(int argc, char **argv)
 	int erase_block_size = 64;
 	int erase_size = 0;
 	int rw_offset = 0;
+	
+	
 
 	bool read_mode = false;
 	bool check_mode = false;
@@ -937,7 +942,7 @@ int main(int argc, char **argv)
 	fprintf(stderr, "init..\n");
 	jtag_init(ifnum, devstr, slow_clock);
 
-	read_idcode();
+	idcodeg=read_idcode();
 	read_status_register();
 
 	if (test_mode)

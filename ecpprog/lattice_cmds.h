@@ -20,6 +20,7 @@ enum lattice_cmd
 	LSC_INIT_ADDRESS = 0x46, /* 24 bits - Initialize the Address Shift Register */
 	LSC_WRITE_ADDRESS = 0xB4, /* 24 bits - Write the 16 bit Address Register to move the address quickly */
 	LSC_BITSTREAM_BURST = 0x7A, /* 24 bits - Program the device the whole bitstream sent in as the command operand */
+	LSC_PROG_INCR_NV = 0x70, /* 24 bits - Write configuration data to the configuration memory frame at current address and post increment the address, Byte 2~0 of the opcode indicate number of the frames included in the operand field */
 	LSC_PROG_INCR_RTI = 0x82, /* 24 bits - Write configuration data to the configuration memory frame at current address and post increment the address, Byte 2~0 of the opcode indicate number of the frames included in the operand field */
 	LSC_PROG_INCR_ENC = 0xB6, /* 24 bits - Encrypt the configuration data then write */
 	LSC_PROG_INCR_CMP = 0xB8, /* 24 bits - Decompress the configuration data, then write */
@@ -52,6 +53,7 @@ struct ecp_device_id {
 
 const struct ecp_device_id ecp_devices[] =
 {
+	{"MXO3LF-69"  , 0x612bd043 },
 	{"LFE5U-12"   , 0x21111043 },
 	{"LFE5U-25"   , 0x41111043 },
 	{"LFE5U-45"   , 0x41112043 },
