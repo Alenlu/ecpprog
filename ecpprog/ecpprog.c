@@ -92,15 +92,16 @@ enum flash_cmd {
 	FC_RESET = 0x99, /* Reset Device */
 };
 
+#ifdef MACHXO3
 	uint32_t idcodeg = 0;
-
+#endif
 // ---------------------------------------------------------
 // JTAG -> SPI functions
 // ---------------------------------------------------------
 
 /* 
  * JTAG performrs all shifts LSB first, our FLSAH is expeting bytes MSB first,
- * There are a few ways to fix this, for now we just bit-reverse all the input data to the JTAG core
+ * There are a few ways to fix this, for now we just bit-reverse all the input data to the JTAG core#i
  */
 uint8_t bit_reverse(uint8_t in){
 
@@ -447,9 +448,11 @@ static void print_idcode(uint32_t idcode){
 	}
 	printf("IDCODE: 0x%08x does not match :(\n", idcode);
 }
-
+#ifdef MACHXO3
 static uint32_t read_idcode(){
-
+#else
+static void read_idcode(){
+#endif	
 	uint8_t data[4] = {READ_ID};
 
 	jtag_go_to_state(STATE_SHIFT_IR);
@@ -466,10 +469,55 @@ static uint32_t read_idcode(){
 		idcode = data[i] << 24 | idcode >> 8;
 
 	print_idcode(idcode);
-
+#ifdef MACHXO3
 	return idcode;
+#endif
 }
 
+#ifdef MACHXO3
+static void print_machxo3_status_register(uint32_t status){	
+	printf("MACHXO3 Status Register: 0x%08x\n", status);
+
+	if(verbose){
+		printf("  Transparent Mode:   %s\n",  status & (1 << 0)  ? "Yes" : "No" );
+		printf("  Config Target:      %s\n",  status & (7 << 1)  ? "eFuse" : "SRAM" );
+		printf("  JTAG Active:        %s\n",  status & (1 << 4)  ? "Yes" : "No" );
+		printf("  PWD Protection:     %s\n",  status & (1 << 5)  ? "Yes" : "No" );
+		printf("  Decrypt Enable:     %s\n",  status & (1 << 7)  ? "Yes" : "No" );
+		printf("  DONE:               %s\n",  status & (1 << 8)  ? "Yes" : "No" );
+		printf("  ISC Enable:         %s\n",  status & (1 << 9)  ? "Yes" : "No" );
+		printf("  Write Enable:       %s\n",  status & (1 << 10) ? "Writable" : "Not Writable");
+		printf("  Read Enable:        %s\n",  status & (1 << 11) ? "Readable" : "Not Readable");
+		printf("  Busy Flag:          %s\n",  status & (1 << 12) ? "Yes" : "No" );
+		printf("  Fail Flag:          %s\n",  status & (1 << 13) ? "Yes" : "No" );
+		printf("  Feature OTP:        %s\n",  status & (1 << 14) ? "Yes" : "No" );
+		printf("  Decrypt Only:       %s\n",  status & (1 << 15) ? "Yes" : "No" );
+		printf("  PWD Enable:         %s\n",  status & (1 << 16) ? "Yes" : "No" );
+		printf("  Encrypt Preamble:   %s\n",  status & (1 << 20) ? "Yes" : "No" );
+		printf("  Std Preamble:       %s\n",  status & (1 << 21) ? "Yes" : "No" );
+		printf("  SPIm Fail 1:        %s\n",  status & (1 << 22) ? "Yes" : "No" );
+		
+		uint8_t bse_error = (status & (7 << 23)) >> 23;
+		switch (bse_error){
+			case 0b000: printf("  BSE Error Code:     No Error (0b000)\n"); break;
+			case 0b001: printf("  BSE Error Code:     ID Error (0b001)\n"); break;
+			case 0b010: printf("  BSE Error Code:     CMD Error - illegal command (0b010)\n"); break;
+			case 0b011: printf("  BSE Error Code:     CRC Error (0b011)\n"); break;
+			case 0b100: printf("  BSE Error Code:     PRMB Error - preamble error (0b100)\n"); break;
+			case 0b101: printf("  BSE Error Code:     ABRT Error - configuration aborted by the user (0b101)\n"); break;
+			case 0b110: printf("  BSE Error Code:     OVFL Error - data overflow error (0b110)\n"); break;
+			case 0b111: printf("  BSE Error Code:     SDM Error - bitstream pass the size of SRAM array (0b111)\n"); break;
+		}
+
+		printf("  Execution Error:    %s\n",  status & (1 << 26) ? "Yes" : "No" );
+		printf("  ID Error:           %s\n",  status & (1 << 27) ? "Yes" : "No" );
+		printf("  Invalid Command:    %s\n",  status & (1 << 28) ? "Yes" : "No" );
+		printf("  SED Error:          %s\n",  status & (1 << 29) ? "Yes" : "No" );
+		printf("  Bypass Mode:        %s\n",  status & (1 << 30) ? "Yes" : "No" );
+		printf("  Flow Through Mode:  %s\n",  status & (1 << 31) ? "Yes" : "No" );
+	}
+}
+#endif
 
 static void print_status_register(uint32_t status){	
 	printf("ECP5 Status Register: 0x%08x\n", status);
@@ -533,7 +581,12 @@ static void read_status_register(){
 	for(int i = 0; i< 4; i++)
 		status = data[i] << 24 | status >> 8;
 
-	print_status_register(status);
+	if(ecp_devices[0].device_id == idcodeg){
+		print_machxo3_status_register(status);
+	}
+	else{
+		print_status_register(status);
+	}
 }
 
 
@@ -609,6 +662,9 @@ static void help(const char *progname)
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Mode of operation:\n");
 	fprintf(stderr, "  [default]             write file contents to flash, then verify\n");
+#ifdef MACHXO3	
+	fprintf(stderr, "  -m                    write file contents to MACHXO3 flash, then verify\n");
+#endif	
 	fprintf(stderr, "  -X                    write file contents to flash only\n");	
 	fprintf(stderr, "  -r                    read first 256 kB from flash and write to file\n");
 	fprintf(stderr, "  -R <size in bytes>    read the specified number of bytes from flash\n");
@@ -665,6 +721,9 @@ int main(int argc, char **argv)
 	bool erase_mode = false;
 	bool bulk_erase = false;
 	bool dont_erase = false;
+#ifdef MACHXO3
+	bool prog_machxo3 = false;
+#endif	
 	bool prog_sram = false;
 	bool test_mode = false;
 	bool slow_clock = false;
@@ -687,7 +746,7 @@ int main(int argc, char **argv)
 	/* Decode command line parameters */
 	int opt;
 	char *endptr;
-	while ((opt = getopt_long(argc, argv, "d:i:I:rR:e:o:cbnStvspX", long_options, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "d:i:ImrR:e:o:cbnStvspX", long_options, NULL)) != -1) {
 		switch (opt) {
 		case 'd': /* device string */
 			devstr = optarg;
@@ -718,6 +777,11 @@ int main(int argc, char **argv)
 				return EXIT_FAILURE;
 			}
 			break;
+#ifdef MACHXO3			
+		case 'm': /* program machxo3 internal flash */ 
+			prog_machxo3 = true;
+			break;
+#endif			
 		case 'r': /* Read 256 bytes to file */
 			read_mode = true;
 			break;
@@ -942,7 +1006,11 @@ int main(int argc, char **argv)
 	fprintf(stderr, "init..\n");
 	jtag_init(ifnum, devstr, slow_clock);
 
+#ifdef MACHXO3	
 	idcodeg=read_idcode();
+#else
+	read_idcode();
+#endif	
 	read_status_register();
 
 	if (test_mode)
@@ -998,6 +1066,17 @@ int main(int argc, char **argv)
 	
 		ecp_jtag_cmd(ISC_DISABLE);
 		read_status_register();	
+	}
+	else if (prog_machxo3)
+	{
+		fprintf(stderr, "machxo3 reset..\n");
+		ecp_jtag_cmd8(ISC_ENABLE, 0);
+		ecp_jtag_cmd8(ISC_ERASE, 0);
+		ecp_jtag_cmd(ISC_DISABLE);
+
+		read_status_register();
+		ecp_jtag_cmd8(LSC_INIT_ADDRESS, 0);
+
 	}
 	else /* program flash */
 	{
